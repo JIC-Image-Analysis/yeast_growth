@@ -1,5 +1,6 @@
 """Yeast growth analysis."""
 
+import os
 import math
 import argparse
 
@@ -147,8 +148,12 @@ def quantify_yeast_growth(input_filename, annotation_filename,
 
 def generate_arguments_and_quantify_yeast(input_filename):
 
-    annotation_filename = '/output/annotation.png'
-    profile_filename = '/output/pline.txt'
+    output_path = '/output'
+    basename = os.path.basename(input_filename)
+    name, ext = os.path.splitext(basename)
+
+    annotation_filename = os.path.join(output_path, name + '_annotation.png')
+    profile_filename = os.path.join(output_path, name + '_pline.txt')
 
     quantify_yeast_growth(input_filename, annotation_filename, 
                             profile_filename)
