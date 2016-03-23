@@ -49,15 +49,9 @@ def find_n_best_hough_circles(radii, hough_res, n):
 
     return circles
 
-def record_line_profile(image, line_start, line_end, filename):
-
-    pline = profile_line(image, line_start, line_end)
-
-    print analyse_line_profile(pline)
+def record_line_profile(filename, pline):
 
     enumerated = list(enumerate(pline))
-
-    #print np.median(pline[100:-100])
 
     with open(filename, 'w') as f:
         f.write('position,intensity\n')
@@ -81,28 +75,11 @@ def find_line_through_point(center, theta, length):
 
     return line_start, line_end
 
-def quantify_yeast_growth(input_filename):
+def fit_central_circle(image, radius_lower_bound=170, radius_upper_bound=190):
+    """Find the centre and radius of the central circle in image. Analysis is
+    restrictied the given bounds for the radius of the circle."""
 
-    image = Image.from_file(input_filename)
-
-    blue_channel = image[:,:,2]
-
-    #smoothed = smooth_gaussian(blue_channel.astype(np.float), sigma=20)
-    #edges = find_edges_sobel(smoothed)
-
-    #circlet = edges[500:2500, 1000:3000]
-
-    # with open('circlet.png', 'wb') as f:
-    #     f.write(circlet.view(Image).png())
-
-
-
-    #downscaled = downscale_local_mean(blue_channel, (4, 4))
-    downscaled = downscale_local_mean(blue_channel, (2, 2))
-
-    #downscaled = blue_channel
-
-    smoothed = smooth_gaussian(downscaled.astype(np.float), sigma=5)
+    smoothed = smooth_gaussian(image.astype(np.float), sigma=5)
     edges = find_edges_sobel(smoothed)
     thresh = threshold_otsu(edges)
 
@@ -110,56 +87,71 @@ def quantify_yeast_growth(input_filename):
     hough_radii = np.arange(140, 170, 2)
     hough_res = hough_circle(thresh, hough_radii)
 
-    circles = find_n_best_hough_circles(hough_radii, hough_res, 2)
+    circles = find_n_best_hough_circles(hough_radii, hough_res, 1)
     circle = circles[0]
 
-    # for r in range(10):
-    #     hplane = hough_res[r,:,:]
-    #     mval = np.max(hplane)
-    #     print hough_radii[r], mval, np.where(hplane == mval)
+    return circle
 
-    print hough_res.shape
+def load_and_downscale(input_filename):
+    """Load the image, covert to grayscale and downscale as needed."""
 
-    circle_coords = circle_perimeter(*circle)
+    image = Image.from_file(input_filename)
+    blue_channel = image[:,:,2]
+    downscaled = downscale_local_mean(blue_channel, (2, 2))
 
+    return downscaled
+
+def find_mean_profile_line(image, annotation, center, theta_start, theta_end, length):
+
+    lines = []
+
+    for theta in np.linspace(theta_start, theta_end, 200):
+        line_start, line_end = find_line_through_point(center, theta, length)
+
+        pline = profile_line(image, line_start, line_end)
+        annotation_line = line(*(line_start + line_end))
+
+        annotation[annotation_line] = 0, 255, 255
+
+        lines.append(pline[:length-1])
+
+    lines_as_matrix = np.stack(lines)
+
+    average_lines = np.mean(lines_as_matrix, axis=0)
+
+    return average_lines
+
+def quantify_yeast_growth(input_filename, annotation_filename, 
+                            profile_filename):
+    
+
+    downscaled = load_and_downscale(input_filename)
     annotation = AnnotatedImage.from_grayscale(downscaled)
 
+    circle = fit_central_circle(downscaled)
+
+    circle_coords = circle_perimeter(*circle)
     annotation[circle_coords] = 0, 255, 0
 
     x, y, r = circle
     center = (x, y)
 
-    lines = []
-    range_start = -math.pi/4
-    range_end = math.pi/4
-    line_length = 380#475
+    mean_profile_line = find_mean_profile_line(downscaled, annotation,
+                                center, -math.pi/4, math.pi/4, 380)
 
-    print 'SHAPE', downscaled.shape
-    for theta in np.linspace(range_start, range_end, 200):
-        line_start, line_end = find_line_through_point(center, theta, line_length)
 
-        pline = profile_line(smoothed, line_start, line_end)
-        annotation_line = line(*(line_start + line_end))
+    record_line_profile(profile_filename, mean_profile_line)
 
-        annotation[annotation_line] = 0, 255, 255
-
-        lines.append(pline[:line_length-1])
-        #print len(pline)
-
-    lines_as_matrix = np.stack(lines)
-    average_lines = np.median(lines_as_matrix, axis=0)
-
-    enumerated = list(enumerate(average_lines))
-    filename = '/output/pline.txt'
-
-    with open(filename, 'w') as f:
-        f.write('position,intensity\n')
-        values_string = '\n'.join('{},{}'.format(*v) for v in enumerated)
-        f.write(values_string)
-
-    with open('annotation.png', 'wb') as f:
+    with open(annotation_filename, 'wb') as f:
         f.write(annotation.png())
 
+def generate_arguments_and_quantify_yeast(input_filename):
+
+    annotation_filename = '/output/annotation.png'
+    profile_filename = '/output/pline.txt'
+
+    quantify_yeast_growth(input_filename, annotation_filename, 
+                            profile_filename)
 
 
 def main():
@@ -167,7 +159,8 @@ def main():
     parser.add_argument('input_filename')
     args = parser.parse_args()
 
-    quantify_yeast_growth(args.input_filename)
+    generate_arguments_and_quantify_yeast(args.input_filename)
+
 
 if __name__ == '__main__':
     main()

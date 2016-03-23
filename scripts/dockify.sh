@@ -5,4 +5,4 @@ CODEDIR=`pwd`/scripts
 OUTPUTDIR=`pwd`/output
 CONTAINER=jicscicomp/jicbioimage
 
-docker run -v $DATADIR:/data -v $CODEDIR:/code -v $OUTPUTDIR:/output -it --rm $CONTAINER
+docker run -v $DATADIR:/data:ro -v $CODEDIR:/code:ro -v $OUTPUTDIR:/output -it --rm $CONTAINER
