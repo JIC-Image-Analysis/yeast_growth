@@ -1,4 +1,5 @@
 library(ggplot2)
-data <- read.table('output/pline.txt', header=T, sep=',')
+args <- commandArgs(trailingOnly=TRUE)
+data <- read.table(args[1], header=T, sep=',')
 ggplot(data=data, aes(x=position, y=intensity)) + geom_line()
-ggsave('line-plot.png')
+ggsave(args[2])
