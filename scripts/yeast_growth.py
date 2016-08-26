@@ -112,7 +112,10 @@ def find_mean_profile_line(image, annotation, center, theta_start, theta_end, le
         pline = profile_line(image, line_start, line_end)
         annotation_line = line(*(line_start + line_end))
 
-        annotation[annotation_line] = 0, 255, 255
+        try:
+            annotation[annotation_line] = 0, 255, 255
+        except IndexError:
+            pass
 
         lines.append(pline[:length-1])
 
@@ -137,8 +140,11 @@ def quantify_yeast_growth(input_filename, annotation_filename,
     x, y, r = circle
     center = (x, y)
 
+    xdim, ydim, = downscaled.shape
+    line_length = ydim - y
+
     mean_profile_line = find_mean_profile_line(downscaled, annotation,
-                                center, -math.pi/4, math.pi/4, 380)
+                                center, -math.pi/4, math.pi/4, line_length)
 
 
     record_line_profile(profile_filename, mean_profile_line)
